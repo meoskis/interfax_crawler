@@ -9,17 +9,6 @@ import numpy as np
 import os
 import codecs
 
-
-url = "https://spark-interfax.ru/"
-wb_path = r'C:\Users\207799\PycharmProjects\interfax_crawler\chromedriver-win64\chromedriver.exe'
-username = 'FAUNIVER125' # FAUNIVER124 FAUNIVER125
-password = 'wcKoepi' # kLC02oo wcKoepi
-inn = 7703400140
-min_delay = 2.5
-max_delay = 30
-
-data = pd.read_excel('рейтинг крупнейших компаний россии по объему реализации продукции raex-600 final.xlsx')
-
 # Подключение вебдрайвера
 def webdriver_launch(webdriver_dir: str, url: str):
     service = Service(
@@ -91,13 +80,12 @@ def find_smi_card(driver, block_number):
             driver.find_element(By.XPATH,
                                 f'/html/body/div[1]/div[1]/div[1]/div[3]/div[2]/div/div[1]/div/div[{block_number}]/button[{element}]/div/div/span[text()="Публикации в СМИ"]')
             element_number = element
-            smi_info = driver.find_element(By.XPATH,
-                                           f'/html/body/div[1]/div[1]/div[1]/div[3]/div[2]/div/div[1]/div/div[{block_number}]/button[{element_number}]')
-            smi_info.click()
+            print(f'/html/body/div[1]/div[1]/div[1]/div[3]/div[2]/div/div[1]/div/div[{block_number}]/button[{element_number}]')
+            driver.find_element(By.XPATH, f'/html/body/div[1]/div[1]/div[1]/div[3]/div[2]/div/div[1]/div/div[{block_number}]/button[{element_number}]').sendKeys(Keys.RETURN)
             break
         except Exception:
             continue
-            print(element)
+    print(element)
     return(driver)
 
 def smi_card_opener(driver, inn, min_delay, max_delay):
@@ -152,13 +140,67 @@ def new_company_searcher(driver, new_inn, min_delay):
     input_line.send_keys(Keys.ENTER)
     return driver
 
-    # try:
-    driver = smi_card_opener(driver=driver, inn=inn, min_delay=min_delay, max_delay=max_delay)
-    # except Exception:
-    #     print('Ошибка в развертке блока "Публикации в СМИ"')
+def smi_card_opener(driver, inn, min_delay, max_delay):
+    period_button = driver.find_element(By.XPATH,
+                                        '/html/body/div[1]/div[1]/div[1]/div[1]/div[2]/div/div/div/div/div[2]/table[@class="sp-card-content-section sp-card-content-section_width_unlimited mass-media-wide-section mass-media-controls-section"]/tbody/tr/td/div[@class="mass-media-controls-section__toolbar-container"]/div[@class="mass-media-dashboard-toolbar"]/table/tbody/tr/td[3]/div/span[2]/div')
+    period_button.click()
     time.sleep(min_delay)
+
+    different_periods = driver.find_elements(By.XPATH, '/html/body/div[1]/div[1]/div[1]/div[1]/div[2]/div/div/div/div/div[2]/table[@class="sp-card-content-section sp-card-content-section_width_unlimited mass-media-wide-section mass-media-controls-section"]/tbody/tr/td/div/div/table/tbody/tr/td[3]/div/span[2]/div/ul/li')
+    for period in range(len(different_periods)):
+        if different_periods[period].text.upper() == 'ПОСЛЕДНИЙ ГОД':
+            period_number = period+1
+            break
+    year_period = driver.find_element(By.XPATH, f'/html/body/div[1]/div[1]/div[1]/div[1]/div[2]/div/div/div/div/div[2]/table[@class="sp-card-content-section sp-card-content-section_width_unlimited mass-media-wide-section mass-media-controls-section"]/tbody/tr/td/div/div/table/tbody/tr/td[3]/div/span[2]/div/ul/li[{period_number}]')
+    year_period.click()
+
+    time.sleep(max_delay)
+
+    all_news = driver.find_element(By.XPATH, '/html/body/div[1]/div[1]/div[1]/div[1]/div[2]/div/div/div/div/div[2]/table[@class="sp-card-content-section sp-card-content-section_width_unlimited mass-media-wide-section mass-media-stat-section"]/tbody/tr/td/table/tbody/tr/td[1]/table/tbody/tr[1]/td/table/tbody/tr/td[2]/button/div')
+    all_news.click()
+
+    time.sleep(max_delay)
+
+    find_organizations = driver.find_elements(By.XPATH, '/html/body/div/div[1]/div[1]/div[1]/div[2]/div/div/div/div/div[3]/div[2]/div[2]/div[2]/div[1]/div/div/div')
+    for title in range(1, len(find_organizations)+1):
+        try:
+            driver.find_element(By.XPATH, f'/html/body/div[1]/div[1]/div[1]/div[1]/div[2]/div/div/div/div/div[3]/div[2]/div[2]/div[2]/div[1]/div/div[{title}]/div/div/div/button/div[text()="Организации"]')
+            print('-'*30)
+            more_orgs = driver.find_element(By.XPATH, f'/html/body/div/div[1]/div[1]/div[1]/div[2]/div/div/div/div/div[3]/div[2]/div[2]/div[2]/div[1]/div/div[{title}]/div/button[@class="sp-fake-link spoiler-button sp-facet__expand-btn spoiler-button_grey-text"]/div')
+            more_orgs.click()
+            time.sleep(min_delay)
+        except Exception:
+            continue
+
+    main_card_path = f"C:\\Users\\207799\\Documents\\company_smi_publications\\{str(inn)}.html"
+    f = codecs.open(main_card_path, "w", "utf−8")
+    main_card_html = driver.page_source
+    f.write(main_card_html)
+    driver.close()
+
     return driver
 
+def new_company_searcher(driver, new_inn, min_delay):
+    driver.switch_to.window(driver.window_handles[0])
+    input_line = driver.find_element(By.XPATH, '/html/body/div[1]/div[2]/div/div[1]/div/div/div/div[1]/div/span/input')
+    input_line.send_keys(Keys.CONTROL + 'a' + Keys.DELETE)
+    input_line = driver.find_element(By.XPATH, '/html/body/div[1]/div[2]/div/div[1]/div/div/div/div[1]/div/span/input')
+    time.sleep(min_delay)
+    input_line.send_keys(new_inn)
+    time.sleep(min_delay)
+    input_line.send_keys(Keys.ENTER)
+    return driver
+
+url = "https://spark-interfax.ru/"
+wb_path = r'C:\Users\207799\PycharmProjects\interfax_crawler\chromedriver-win64\chromedriver.exe'
+username = 'FAUNIVER124' # FAUNIVER124 FAUNIVER125
+password = 'kLC02oo' # kLC02oo wcKoepi
+min_delay = 5
+max_delay = 25
+
+data = pd.read_excel('рейтинг крупнейших компаний россии по объему реализации продукции raex-600 final.xlsx')
+data['ИНН'] = data['ИНН'].astype(str)
+frst_inn = data['ИНН'].iloc[0]
 
 driver = webdriver_launch(webdriver_dir=wb_path, url=url)
 time.sleep(min_delay)
@@ -166,11 +208,11 @@ time.sleep(min_delay)
 driver = login(driver=driver, username=username, password=password, min_delay=min_delay)
 time.sleep(min_delay)
 
-driver = frst_company_search(driver=driver, inn=inn, min_delay=min_delay)
+driver = frst_company_search(driver=driver, inn=frst_inn, min_delay=min_delay)
 time.sleep(min_delay)
 
 try:
-    driver = find_company_main_card(driver=driver, inn=inn)
+    driver = find_company_main_card(driver=driver, inn=frst_inn)
 except Exception:
     print('Ошибка в поиске компании')
 time.sleep(min_delay)
@@ -185,14 +227,40 @@ try:
     driver = find_smi_card(driver=driver, block_number=block_number)
 except Exception:
     print('Ошибка в поиске и открытии блока "Публикации в СМИ')
+time.sleep(min_delay * 3)
+
+try:
+    driver = smi_card_opener(driver=driver, inn=frst_inn, min_delay=min_delay, max_delay=max_delay)
+except Exception:
+    print('Ошибка в развертке блока "Публикации в СМИ"')
 time.sleep(min_delay)
 
-new_inn = 6345002063
-driver = new_company_searcher(driver=driver, new_inn=new_inn, min_delay=min_delay)
-time.sleep(min_delay)
+for inn in range(1, data['ИНН'].shape[0]):
+    new_inn = data['ИНН'].iloc[inn]
+    print(new_inn)
+    driver = new_company_searcher(driver=driver, new_inn=new_inn, min_delay=min_delay)
+    time.sleep(min_delay)
 
-time.sleep(200)
+    try:
+        driver = find_company_main_card(driver=driver, inn=new_inn)
+    except Exception:
+        print('Ошибка в поиске компании')
+    time.sleep(min_delay)
 
+    try:
+        driver, block_number = find_correct_left_panel(driver=driver)
+    except Exception:
+        print('Ошибка в поиске блока "Деятельность компании"')
+    time.sleep(min_delay)
 
+    try:
+        driver = find_smi_card(driver=driver, block_number=block_number)
+    except Exception:
+        print('Ошибка в поиске и открытии блока "Публикации в СМИ')
+    time.sleep(min_delay * 3)
 
-time.sleep(200)
+    # try:
+    driver = smi_card_opener(driver=driver, inn=new_inn, min_delay=min_delay, max_delay=max_delay)
+    # except Exception:
+    #     print('Ошибка в развертке блока "Публикации в СМИ"')
+    time.sleep(min_delay)
